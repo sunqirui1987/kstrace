@@ -3,15 +3,15 @@ package strace
 import (
 	"context"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io"
-	"net/url"
-	"time"
-
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	tcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/kubernetes/pkg/kubectl/util/term"
+	"net/url"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,18 +62,22 @@ func (a *Attacher) Attach(selector, namespace string) {
 		})
 
 		if err != nil {
+			log.Errorf("a.CoreV1Client.Pods err %s", err)
 			return false, err
 		}
 
 		if len(pl.Items) == 0 {
+			log.Error("podNotFoundError")
 			return false, fmt.Errorf(podNotFoundError)
 		}
 		pod := &pl.Items[0]
 		if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+			log.Error("podPhaseNotAcceptedError")
 			return false, fmt.Errorf(podPhaseNotAcceptedError, pod.Status.Phase)
 		}
 
 		if len(pod.Spec.Containers) != 1 {
+			log.Error("invalidPodContainersSizeError")
 			return false, fmt.Errorf(invalidPodContainersSizeError)
 		}
 
@@ -82,6 +86,7 @@ func (a *Attacher) Attach(selector, namespace string) {
 
 		t, err := setupTTY(a.IOStreams.Out, a.IOStreams.In)
 		if err != nil {
+			log.Errorf("setupTTY err %s", err)
 			return false, err
 		}
 		ao := attach{
@@ -95,7 +100,8 @@ func (a *Attacher) Attach(selector, namespace string) {
 		err = t.Safe(ao.defaultAttachFunc())
 
 		if err != nil {
-			// on error, just send false so that the backoff mechanism can do a new tentative
+			log.Infof("t.Safe  %s", err)
+
 			return false, nil
 		}
 		return true, nil
