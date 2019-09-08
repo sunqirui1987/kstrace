@@ -1,7 +1,9 @@
 package strace
 
 import (
+	"fmt"
 	"io"
+	"io/ioutil"
 
 	batchv1 "k8s.io/api/batch/v1"
 	apiv1 "k8s.io/api/core/v1"
@@ -31,6 +33,13 @@ type StraceJobClient struct {
 	JobClient    batchv1typed.JobInterface
 	ConfigClient corev1typed.ConfigMapInterface
 	outStream    io.Writer
+}
+
+func (t *StraceJobClient) WithOutStream(o io.Writer) {
+	if o == nil {
+		t.outStream = ioutil.Discard
+	}
+	t.outStream = o
 }
 
 type StraceJobStatus string
@@ -193,4 +202,24 @@ func (t *StraceJobClient) CreateJob(nj StraceJob) (*batchv1.Job, error) {
 		return nil, err
 	}
 	return t.JobClient.Create(job)
+}
+
+func (t *StraceJobClient) DeleteJob(name string) error {
+	dp := metav1.DeletePropagationForeground
+	err := t.JobClient.Delete(name, &metav1.DeleteOptions{
+		GracePeriodSeconds: int64Ptr(0),
+		PropagationPolicy:  &dp,
+	})
+
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(t.outStream, "trace job %s deleted\n", name)
+
+	err = t.ConfigClient.Delete(name, nil)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(t.outStream, "trace configuration %s deleted\n", name)
+	return nil
 }

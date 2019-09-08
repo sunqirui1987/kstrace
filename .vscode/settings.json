@@ -1,0 +1,13 @@
+{
+    "go.inferGopath": false,
+    "go.formatTool": "goimports",
+    // Run Lint tool on save.
+    "go.lintOnSave": true,
+
+    // Specifies Lint tool name.
+    "go.lintTool": "golint",
+    "go.lintFlags": [
+        "--disable-all",
+        "--enable=errcheck"
+    ]
+}

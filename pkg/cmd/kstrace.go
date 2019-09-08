@@ -3,8 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"io/ioutil"
+
+	"github.com/pkg/errors"
 
 	"github.com/suiqirui1987/kstrace/pkg/factory"
 	"github.com/suiqirui1987/kstrace/pkg/strace"
@@ -13,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes/scheme"
 	batchv1client "k8s.io/client-go/kubernetes/typed/batch/v1"
@@ -199,9 +200,12 @@ func (o *KStrace) Run() error {
 		JobClient:    jobsClient.Jobs(o.namespace),
 		ConfigClient: coreClient.ConfigMaps(o.namespace),
 	}
+	sc.WithOutStream(o.Out)
+
+	jobname := fmt.Sprintf("%s%s", strace.TracePrefix, string(juid))
 
 	sj := strace.StraceJob{
-		Name:      fmt.Sprintf("%s%s", strace.TracePrefix, string(juid)),
+		Name:      jobname,
 		Namespace: o.namespace,
 		ID:        juid,
 
@@ -224,6 +228,13 @@ func (o *KStrace) Run() error {
 	a := strace.NewAttacher(coreClient, o.clientConfig, o.IOStreams)
 	a.WithContext(ctx)
 	a.AttachJob(sj.ID, job.Namespace)
+
+	//删除JOB
+
+	err = sc.DeleteJob(jobname)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

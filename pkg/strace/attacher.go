@@ -3,15 +3,16 @@ package strace
 import (
 	"context"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
+	"net/url"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	tcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/kubernetes/pkg/kubectl/util/term"
-	"net/url"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,11 +53,12 @@ func (a *Attacher) AttachJob(traceJobID types.UID, namespace string) {
 
 func (a *Attacher) Attach(selector, namespace string) {
 	go wait.ExponentialBackoff(wait.Backoff{
-		Duration: time.Second * 1,
+		Duration: time.Second * 3,
 		Factor:   0.01,
 		Jitter:   0.0,
-		Steps:    100,
+		Steps:    500,
 	}, func() (bool, error) {
+
 		pl, err := a.CoreV1Client.Pods(namespace).List(metav1.ListOptions{
 			LabelSelector: selector,
 		})
@@ -67,9 +69,10 @@ func (a *Attacher) Attach(selector, namespace string) {
 		}
 
 		if len(pl.Items) == 0 {
-			log.Error("podNotFoundError")
-			return false, fmt.Errorf(podNotFoundError)
+			log.Infof("podNotFoundError namespace %s,selector %s", namespace, selector)
+			return false, nil
 		}
+
 		pod := &pl.Items[0]
 		if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
 			log.Error("podPhaseNotAcceptedError")
